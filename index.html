@@ -159,6 +159,17 @@
 </head>
 
 <body>
+  <!-- Hidden form for Netlify Forms detection -->
+  <form name="voice-assist-inquiry" netlify netlify-honeypot="bot-field" hidden>
+    <input type="hidden" name="form-name" value="voice-assist-inquiry" />
+    <input type="hidden" name="bot-field" />
+    <input name="clientName" />
+    <input name="userType" />
+    <input name="businessName" />
+    <input name="urgency" />
+    <textarea name="summary"></textarea>
+  </form>
+
   <div id="root">
     <div style="text-align: center; padding: 50px; color: white;">Loading...</div>
   </div>
@@ -480,8 +491,31 @@ After collecting all information, confirm the details with the caller.`;
         setStatus('IDLE');
       };
 
-      const handleSubmit = () => {
+      const handleSubmit = async () => {
         console.log('Form submitted:', formData);
+
+        // Submit to Netlify Forms
+        try {
+          const formBody = new URLSearchParams({
+            'form-name': 'voice-assist-inquiry',
+            'clientName': formData.clientName || '',
+            'userType': formData.userType || '',
+            'businessName': formData.businessName || '',
+            'urgency': formData.urgency || 'Medium',
+            'summary': formData.summary || ''
+          });
+
+          await fetch('/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: formBody.toString()
+          });
+
+          console.log('Submitted to Netlify Forms');
+        } catch (err) {
+          console.error('Form submission error:', err);
+        }
+
         setSubmitted(true);
       };
 
