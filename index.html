@@ -164,6 +164,8 @@
     <input type="hidden" name="form-name" value="voice-assist-inquiry" />
     <input type="hidden" name="bot-field" />
     <input name="clientName" />
+    <input name="phone" />
+    <input name="email" />
     <input name="userType" />
     <input name="businessName" />
     <input name="urgency" />
@@ -190,8 +192,11 @@ This includes:
 - CORRECTIONS to previously given information (always call sync_triage_form with the corrected value)
 - Any updates or changes the caller requests
 
-Ask for: their name, whether they are a business or personal user, their business name (if applicable), 
+Ask for: their name, phone number, email address (mention they can type it in the form if easier), 
+whether they are a business or personal user, their business name (if applicable), 
 the urgency level (Low, Medium, High, Critical), and a brief summary of their issue.
+
+IMPORTANT: When asking for email, say something like "What's your email address? You can also type it directly in the form on the right if that's easier."
 
 If the caller corrects any information, acknowledge it AND call sync_triage_form with the corrected value immediately.
 After collecting all information, confirm the details with the caller.`;
@@ -203,6 +208,8 @@ After collecting all information, confirm the details with the caller.`;
         type: 'object',
         properties: {
           clientName: { type: 'string', description: 'The caller\'s name' },
+          phone: { type: 'string', description: 'The caller\'s phone number' },
+          email: { type: 'string', description: 'The caller\'s email address' },
           userType: { type: 'string', description: 'Business or Personal' },
           businessName: { type: 'string', description: 'Name of their business if applicable' },
           urgency: { type: 'string', description: 'Low, Medium, High, or Critical' },
@@ -214,7 +221,7 @@ After collecting all information, confirm the details with the caller.`;
     const App = () => {
       const [status, setStatus] = React.useState('IDLE');
       const [error, setError] = React.useState('');
-      const [formData, setFormData] = React.useState({ clientName: '', userType: '', businessName: '', urgency: 'Medium', summary: '' });
+      const [formData, setFormData] = React.useState({ clientName: '', phone: '', email: '', userType: '', businessName: '', urgency: 'Medium', summary: '' });
       const [transcript, setTranscript] = React.useState([]);
       const [submitted, setSubmitted] = React.useState(false);
       const [isSpeaking, setIsSpeaking] = React.useState(false);
@@ -380,6 +387,8 @@ After collecting all information, confirm the details with the caller.`;
                       // Add user's spoken info to transcript
                       const args = fc.args;
                       if (args.clientName) addToTranscript('user', `My name is ${args.clientName}`);
+                      if (args.phone) addToTranscript('user', `Phone: ${args.phone}`);
+                      if (args.email) addToTranscript('user', `Email: ${args.email}`);
                       if (args.userType) addToTranscript('user', `I'm a ${args.userType}`);
                       if (args.businessName) addToTranscript('user', `Business: ${args.businessName}`);
                       if (args.summary) addToTranscript('user', `Issue: ${args.summary}`);
@@ -499,6 +508,8 @@ After collecting all information, confirm the details with the caller.`;
           const formBody = new URLSearchParams({
             'form-name': 'voice-assist-inquiry',
             'clientName': formData.clientName || '',
+            'phone': formData.phone || '',
+            'email': formData.email || '',
             'userType': formData.userType || '',
             'businessName': formData.businessName || '',
             'urgency': formData.urgency || 'Medium',
@@ -669,6 +680,30 @@ After collecting all information, confirm the details with the caller.`;
                     onChange: (ev) => setFormData(prev => ({ ...prev, clientName: ev.target.value })),
                     className: 'w-full bg-white/5 border border-white/5 focus:border-sky-500/50 focus:bg-white/10 rounded-xl px-4 py-3 text-sm transition-all outline-none',
                     placeholder: 'Awaiting name...'
+                  })
+                ),
+
+                // Phone
+                e('div', { className: 'space-y-1' },
+                  e('label', { className: 'text-[10px] font-bold uppercase tracking-widest text-gray-600' }, 'Phone'),
+                  e('input', {
+                    type: 'tel',
+                    value: formData.phone,
+                    onChange: (ev) => setFormData(prev => ({ ...prev, phone: ev.target.value })),
+                    className: 'w-full bg-white/5 border border-white/5 focus:border-sky-500/50 focus:bg-white/10 rounded-xl px-4 py-3 text-sm transition-all outline-none',
+                    placeholder: 'Your phone number...'
+                  })
+                ),
+
+                // Email
+                e('div', { className: 'space-y-1' },
+                  e('label', { className: 'text-[10px] font-bold uppercase tracking-widest text-gray-600' }, 'Email (type here for accuracy)'),
+                  e('input', {
+                    type: 'email',
+                    value: formData.email,
+                    onChange: (ev) => setFormData(prev => ({ ...prev, email: ev.target.value })),
+                    className: 'w-full bg-white/5 border border-white/5 focus:border-sky-500/50 focus:bg-white/10 rounded-xl px-4 py-3 text-sm transition-all outline-none',
+                    placeholder: 'your@email.com'
                   })
                 ),
 
