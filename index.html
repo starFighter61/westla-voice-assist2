@@ -87,9 +87,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
     rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" />
+  <script src="config.js"></script>
   <script>
-    // API key should be entered by user - not hardcoded for security
-    window.process = { env: { API_KEY: localStorage.getItem('gemini_api_key') || '' } };
+    // API key from Netlify env var (config.js) or localStorage fallback
+    window.process = { env: { API_KEY: window.GEMINI_API_KEY || localStorage.getItem('gemini_api_key') || '' } };
   </script>
   <style>
     body {
@@ -207,8 +208,8 @@ After collecting all information, confirm the details with the caller.`;
       const [submitted, setSubmitted] = React.useState(false);
       const [isSpeaking, setIsSpeaking] = React.useState(false);
       const [rms, setRms] = React.useState(0);
-      const [apiKey, setApiKey] = React.useState(localStorage.getItem('gemini_api_key') || '');
-      const [showApiInput, setShowApiInput] = React.useState(!localStorage.getItem('gemini_api_key'));
+      const [apiKey, setApiKey] = React.useState(window.GEMINI_API_KEY || localStorage.getItem('gemini_api_key') || '');
+      const [showApiInput, setShowApiInput] = React.useState(!window.GEMINI_API_KEY && !localStorage.getItem('gemini_api_key'));
 
       const saveApiKey = (key) => {
         localStorage.setItem('gemini_api_key', key);

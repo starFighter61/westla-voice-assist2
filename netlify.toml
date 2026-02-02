@@ -1,0 +1,6 @@
+[build]
+  publish = "."
+  command = "echo 'window.GEMINI_API_KEY = \"'$GEMINI_API_KEY'\";' > config.js"
+
+[build.environment]
+  NODE_VERSION = "18"
