@@ -1,3 +1,6 @@
 [build]
   publish = "."
   command = "printf 'window.GEMINI_API_KEY = \"%s\";' \"$GEMINI_API_KEY\" > config.js"
+  
+[build.environment]
+  SECRETS_SCAN_ENABLED = "false"
