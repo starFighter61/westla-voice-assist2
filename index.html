@@ -88,7 +88,8 @@
     rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" />
   <script>
-    window.process = { env: { API_KEY: "AIzaSyDm6Hy1k-Y8a1sgoXVwg2ddwsY-L3oj1x8" } };
+    // API key should be entered by user - not hardcoded for security
+    window.process = { env: { API_KEY: localStorage.getItem('gemini_api_key') || '' } };
   </script>
   <style>
     body {
@@ -206,6 +207,15 @@ After collecting all information, confirm the details with the caller.`;
       const [submitted, setSubmitted] = React.useState(false);
       const [isSpeaking, setIsSpeaking] = React.useState(false);
       const [rms, setRms] = React.useState(0);
+      const [apiKey, setApiKey] = React.useState(localStorage.getItem('gemini_api_key') || '');
+      const [showApiInput, setShowApiInput] = React.useState(!localStorage.getItem('gemini_api_key'));
+
+      const saveApiKey = (key) => {
+        localStorage.setItem('gemini_api_key', key);
+        setApiKey(key);
+        setShowApiInput(false);
+        window.process.env.API_KEY = key;
+      };
 
       const sessionRef = React.useRef(null);
       const audioContextRef = React.useRef(null);
@@ -476,6 +486,34 @@ After collecting all information, confirm the details with the caller.`;
 
       // Create the UI using React.createElement
       const e = React.createElement;
+
+      // API Key input modal
+      if (showApiInput) {
+        return e('div', { className: 'min-h-screen flex items-center justify-center p-4' },
+          e('div', { className: 'glass rounded-3xl p-8 max-w-md w-full text-center' },
+            e('h2', { className: 'text-2xl font-bold mb-4' }, '🔑 Enter API Key'),
+            e('p', { className: 'text-gray-400 mb-6 text-sm' },
+              'Enter your Google Gemini API key to use the voice assistant. Your key is stored locally and never sent to our servers.'),
+            e('input', {
+              type: 'password',
+              placeholder: 'AIza...',
+              className: 'w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white mb-4 focus:outline-none focus:border-sky-500',
+              id: 'apiKeyInput'
+            }),
+            e('button', {
+              className: 'w-full py-3 bg-sky-500 hover:bg-sky-600 rounded-xl font-bold transition-colors',
+              onClick: () => {
+                const input = document.getElementById('apiKeyInput');
+                if (input.value.trim()) {
+                  saveApiKey(input.value.trim());
+                }
+              }
+            }, 'Save API Key'),
+            e('p', { className: 'text-gray-500 text-xs mt-4' },
+              'Get your API key from Google AI Studio')
+          )
+        );
+      }
 
       return e('div', { className: 'min-h-screen p-4 md:p-8 flex items-center justify-center relative overflow-hidden' },
         // Background glow
