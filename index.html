@@ -255,20 +255,18 @@ After collecting all information, confirm the details with the caller.`;
 
       const sessionRef = React.useRef(null);
       const audioContextRef = React.useRef(null);
-      const audioQueueRef = React.useRef([]);
-      const isPlayingRef = React.useRef(false);
       const speechRecognitionRef = React.useRef(null);
+      const nextPlayTimeRef = React.useRef(0);
+      const activeSourcesRef = React.useRef([]);
 
-      const playNextAudio = async () => {
-        if (isPlayingRef.current || audioQueueRef.current.length === 0) return;
-        isPlayingRef.current = true;
-        const audioData = audioQueueRef.current.shift();
+      const playAudioChunk = async (audioData) => {
         try {
           if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
             audioContextRef.current = new AudioContext();
           }
           const ctx = audioContextRef.current;
           if (ctx.state === 'suspended') await ctx.resume();
+
           const binaryString = atob(audioData);
           const bytes = new Uint8Array(binaryString.length);
           for (let i = 0; i < binaryString.length; i++) {
@@ -279,21 +277,43 @@ After collecting all information, confirm the details with the caller.`;
           for (let i = 0; i < int16Data.length; i++) {
             floatData[i] = int16Data[i] / 32768;
           }
-          const audioBuffer = ctx.createBuffer(1, floatData.length, 24000);
+
+          const sampleRate = 24000;
+          const duration = floatData.length / sampleRate;
+
+          const audioBuffer = ctx.createBuffer(1, floatData.length, sampleRate);
           audioBuffer.copyToChannel(floatData, 0);
+
           const source = ctx.createBufferSource();
           source.buffer = audioBuffer;
           source.connect(ctx.destination);
+
+          // Schedule precise start time
+          const currentTime = ctx.currentTime;
+          let startTime = nextPlayTimeRef.current;
+          if (startTime < currentTime) {
+            // Catch up to current time (with a tiny 30ms safety buffer)
+            startTime = currentTime + 0.03;
+          }
+
+          source.start(startTime);
+          nextPlayTimeRef.current = startTime + duration;
+
+          activeSourcesRef.current.push(source);
           source.onended = () => {
-            isPlayingRef.current = false;
-            playNextAudio();
+            activeSourcesRef.current = activeSourcesRef.current.filter(s => s !== source);
           };
-          source.start();
         } catch (e) {
           console.error('Audio playback error:', e);
-          isPlayingRef.current = false;
-          playNextAudio();
         }
+      };
+
+      const stopAllAudio = () => {
+        activeSourcesRef.current.forEach(source => {
+          try { source.stop(); } catch (e) { }
+        });
+        activeSourcesRef.current = [];
+        nextPlayTimeRef.current = 0;
       };
 
       const addToTranscript = (role, text) => {
@@ -415,6 +435,12 @@ After collecting all information, confirm the details with the caller.`;
               onmessage: (message) => {
                 console.log('Received message:', message);
 
+                // Handle server interruption of model turn (user speaks while model is speaking)
+                if (message.serverContent?.interrupted) {
+                  console.log('AI interrupted by user speech');
+                  stopAllAudio();
+                }
+
                 // Handle tool calls for form filling
                 if (message.toolCall?.functionCalls) {
                   const functionResponses = [];
@@ -476,8 +502,7 @@ After collecting all information, confirm the details with the caller.`;
                       }
                     }
                     if (part.inlineData?.data) {
-                      audioQueueRef.current.push(part.inlineData.data);
-                      playNextAudio();
+                      playAudioChunk(part.inlineData.data);
                     }
                   }
                 }
@@ -535,6 +560,7 @@ After collecting all information, confirm the details with the caller.`;
           try { speechRecognitionRef.current.stop(); } catch (e) { }
           speechRecognitionRef.current = null;
         }
+        stopAllAudio();
         setStatus('IDLE');
       };
 
