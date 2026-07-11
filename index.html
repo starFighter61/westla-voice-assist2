@@ -181,6 +181,22 @@
     import ReactDOM from 'https://esm.sh/react-dom@18.2.0/client';
     import { GoogleGenAI, Modality } from 'https://esm.sh/@google/genai@1.39.0';
 
+    // Helper to resample audio input to 16kHz
+    const resampleFloat32 = (input, inRate, outRate) => {
+      if (inRate === outRate) return input;
+      const ratio = inRate / outRate;
+      const newLength = Math.round(input.length / ratio);
+      const out = new Float32Array(newLength);
+      for (let i = 0; i < newLength; i++) {
+        const idx = i * ratio;
+        const idx0 = Math.floor(idx);
+        const idx1 = Math.min(idx0 + 1, input.length - 1);
+        const frac = idx - idx0;
+        out[i] = input[idx0] * (1 - frac) + input[idx1] * frac;
+      }
+      return out;
+    };
+
     const BRAND_NAME = "West LA Computer Expert";
     const BUSINESS_PHONE = "310-850-8093";
     const OWNER_NAME = "Daniel Zivetz";
@@ -249,7 +265,7 @@ After collecting all information, confirm the details with the caller.`;
         const audioData = audioQueueRef.current.shift();
         try {
           if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
-            audioContextRef.current = new AudioContext({ sampleRate: 24000 });
+            audioContextRef.current = new AudioContext();
           }
           const ctx = audioContextRef.current;
           if (ctx.state === 'suspended') await ctx.resume();
@@ -300,8 +316,14 @@ After collecting all information, confirm the details with the caller.`;
             throw new Error('API key not found');
           }
 
-          audioContextRef.current = new AudioContext({ sampleRate: 24000 });
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          audioContextRef.current = new AudioContext();
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true
+            }
+          });
           const ai = new GoogleGenAI({ apiKey });
 
           const session = await ai.live.connect({
@@ -345,7 +367,7 @@ After collecting all information, confirm the details with the caller.`;
 
                 setTimeout(() => {
                   try {
-                    const audioContext = new AudioContext({ sampleRate: 16000 });
+                    const audioContext = new AudioContext();
                     const source = audioContext.createMediaStreamSource(stream);
                     const processor = audioContext.createScriptProcessor(2048, 1, 1);
                     processor.onaudioprocess = (e) => {
@@ -356,12 +378,27 @@ After collecting all information, confirm the details with the caller.`;
                       setRms(avg);
                       setIsSpeaking(avg > 0.02);
 
-                      // Send audio continuously to the server (let server handle VAD)
-                      const int16 = new Int16Array(input.length);
-                      for (let i = 0; i < input.length; i++) {
-                        int16[i] = Math.max(-32768, Math.min(32767, input[i] * 32768));
+                      // Resample dynamically based on actual input context sample rate to 16000Hz
+                      const resampled = resampleFloat32(input, audioContext.sampleRate, 16000);
+
+                      // Convert to Int16 PCM
+                      const int16 = new Int16Array(resampled.length);
+                      for (let i = 0; i < resampled.length; i++) {
+                        int16[i] = Math.max(-32768, Math.min(32767, resampled[i] * 32768));
                       }
-                      const base64 = btoa(String.fromCharCode(...new Uint8Array(int16.buffer)));
+                      
+                      // Convert to Base64 in safe chunks
+                      const u8 = new Uint8Array(int16.buffer);
+                      let CHUNK = 0x8000;
+                      let idx = 0;
+                      let binary = '';
+                      while (idx < u8.length) {
+                        const slice = u8.subarray(idx, Math.min(idx + CHUNK, u8.length));
+                        binary += String.fromCharCode.apply(null, slice);
+                        idx += CHUNK;
+                      }
+                      const base64 = btoa(binary);
+
                       try {
                         session.sendRealtimeInput({ audio: { data: base64, mimeType: 'audio/pcm;rate=16000' } });
                       } catch (err) {
