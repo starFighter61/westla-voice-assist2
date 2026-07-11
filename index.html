@@ -170,6 +170,7 @@
     <input name="businessName" />
     <input name="urgency" />
     <textarea name="summary"></textarea>
+    <textarea name="transcript"></textarea>
   </form>
 
   <div id="root">
@@ -503,6 +504,11 @@ After collecting all information, confirm the details with the caller.`;
       const handleSubmit = async () => {
         console.log('Form submitted:', formData);
 
+        // Format the transcript for the Netlify Form submission
+        const formattedTranscript = transcript
+          .map(t => `[${t.time}] ${t.role.toUpperCase()}: ${t.text}`)
+          .join('\n');
+
         // Submit to Netlify Forms
         try {
           const formBody = new URLSearchParams({
@@ -513,7 +519,8 @@ After collecting all information, confirm the details with the caller.`;
             'userType': formData.userType || '',
             'businessName': formData.businessName || '',
             'urgency': formData.urgency || 'Medium',
-            'summary': formData.summary || ''
+            'summary': formData.summary || '',
+            'transcript': formattedTranscript || 'No voice transcript recorded.'
           });
 
           await fetch('/', {
