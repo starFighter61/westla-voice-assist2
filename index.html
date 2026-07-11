@@ -337,13 +337,23 @@ After collecting all information, confirm the details with the caller.`;
           }
 
           audioContextRef.current = new AudioContext();
-          const stream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-              echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: true
+          let stream;
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+              }
+            });
+          } catch (e) {
+            console.warn("Advanced audio constraints failed, trying basic audio stream:", e);
+            try {
+              stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            } catch (innerErr) {
+              throw new Error("Microphone access denied or not available. Please check the lock or camera/mic icon in your browser's address bar to enable microphone permissions.");
             }
-          });
+          }
           const ai = new GoogleGenAI({ apiKey });
 
           const session = await ai.live.connect({
