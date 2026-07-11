@@ -513,6 +513,7 @@ After collecting all information, confirm the details with the caller.`;
         try {
           const formBody = new URLSearchParams({
             'form-name': 'voice-assist-inquiry',
+            'bot-field': '',
             'clientName': formData.clientName || '',
             'phone': formData.phone || '',
             'email': formData.email || '',
